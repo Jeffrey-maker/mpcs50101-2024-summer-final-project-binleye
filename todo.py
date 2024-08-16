@@ -1,4 +1,4 @@
-# Final project: Task Manager
+#!/usr/bin/env python3
 
 import argparse
 import pickle
@@ -27,10 +27,6 @@ class Task:
     def complete(self):
         self.completed = datetime.now()
 
-
-
-
-
 class Tasks:
     """A list of `Task` objects."""
     
@@ -38,32 +34,35 @@ class Tasks:
         """Read pickled tasks file into a list"""
         # List of Task objects
         self.tasks = [] 
+        self.max_id = 0
         self.load_tasks()
 
     def load_tasks(self):
-        if os.path.exists(".todo.pickle"):
-            try:
-                with open(".todo.pickle", "rb") as f:
-                    self.tasks = pickle.load(f)
-            except EOFError:
-                print("Error: The pickle file is empty or corrupted.")
+        pickle_path = os.path.expanduser('~/.todo.pickle')
+        if os.path.exists(pickle_path):
+            with open(pickle_path, "rb") as f:
+                self.tasks = pickle.load(f)
+                if self.tasks:
+                    self.max_id = max(task.id for task in self.tasks)
         else:
-            with open(".todo.pickle", "wb") as f:
-                pickle.dump(self.tasks, f)
+            self.pickle_tasks()
 
     def pickle_tasks(self):
         """Picle your task list to a file"""
-        with open(".todo.pickle", "wb") as f:
+        pickle_path = os.path.expanduser('~/.todo.pickle')
+        with open(pickle_path, "wb") as f:
             pickle.dump(self.tasks, f)
 
     def add(self, name, priority=1, due_date=None):
         task = Task(name, priority, due_date)
-        task.id = len(self.tasks) + 1
+        self.max_id += 1
+        task.id = self.max_id
         self.tasks.append(task)
         self.pickle_tasks()
-        print(f"Created task {task.id}")
+        print(f"Created task {task.id}: {task.name} with priority {task.priority} and due date {task.due_date.strftime('%m/%d/%Y') if task.due_date else 'None'}")
    
     def list(self):
+        print("Incomplete Task List:")
         incomplete = [task for task in self.tasks if task.completed == None]
         incomplete.sort(key=lambda x: (x.due_date or datetime.max, -x.priority))
         print(f"{'ID':<5}{'Age':<5}{'Due Date':<11}{'Priority':<11}{'Task'}")
@@ -85,14 +84,14 @@ class Tasks:
         if task:
             task.complete()
             self.pickle_tasks()
-            print(f"Completed task {task_id}")
+            print(f"Completed task {task_id}: {task.name}")
     
     def delete(self, task_id):
         task = self.get_task(task_id)
         if task:
             self.tasks.remove(task)
             self.pickle_tasks()
-            print(f"Deleted task {task_id}")
+            print(f"Deleted task {task_id}: {task.name}")
     
     def print_tasks(self, tasks):
         print(f"{'ID':<5}{'Age':<5}{'Due Date':<11}{'Priority':<11}{'Task':<30}{'Created':<30}{'Completed'}")
@@ -105,17 +104,16 @@ class Tasks:
             print(f"{task.id:<5}{age:<5}{due_date:<11}{task.priority:<11}{task.name:<30}{created:<30}{completed}")
 
     def report(self):
+        print("Task Report:")
         self.print_tasks(self.tasks)
 
     def query(self, search_terms):
         matching_tasks = [task for task in self.tasks if any(term.lower() in task.name.lower() for term in search_terms) and task.completed == None]
         if matching_tasks:
+            print("Matching tasks:")
             self.print_tasks(matching_tasks)
         else:
             print("No matching tasks found")
-
-
-   
 
 def main():
     """All the real work that drives the program"""
@@ -137,7 +135,6 @@ def main():
     # Read out arguments (note the types)
     if args.add:
         due_date = datetime.strptime(args.due, "%m/%d/%Y") if args.due else None
-        print(f"We need to add {args.add} to our todo list with a priority of {args.priority}.")
         task_list.add(args.add, args.priority, due_date)
     elif args.query:
         task_list.query(args.query)
@@ -148,16 +145,7 @@ def main():
     elif args.delete:
         task_list.delete(args.delete)
     elif args.report:
-        print("Print out the report")
         task_list.report()
-
-    # Read out arguments (note the types)
-    # print("Add:", args.add)
-    # print("Due:", args.due)
-    # print("Priority:", args.priority)
-    # print("List:", args.list)
-    # print("Query:", args.query)
-
 
 if __name__ == "__main__":
     main()
